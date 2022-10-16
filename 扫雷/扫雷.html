@@ -1,0 +1,406 @@
+<!DOCTYPE html>
+<html>
+    <head>
+        <meta charset="utf-8">
+        <title>八重樱爱学习--扫雷</title>
+        <style type="text/css">
+            .grid{
+                width: 18px;
+                height: 18px;
+                background-color: #30c00c;
+                float: left;
+                border: 1px black solid;
+            }
+            .mine{
+                width: 18px;
+                height: 18px;
+                float: left;
+                background-image:url(mine.png);
+                background-size: 18px 18px;
+                border: 1px black solid;
+            }
+            .flag{
+                width: 18px;
+                height: 18px;
+                float: left;
+                background-image:url(flag.png);
+                background-size: 18px 18px;
+                border: 1px black solid;
+            }
+            .number{
+                width: 18px;
+                height: 18px;
+                float:left;
+                text-align: center;
+                line-height: 20px;
+                border: 1px black solid;
+                background-color: rgb(235, 14, 32);
+                font-weight: bold;
+            }
+            #box{
+                height: 200px;
+                width: 200px;
+                border: black 5px solid;
+                position: absolute;
+                left:calc(50% - 100px);
+                top: 100px;
+                
+            }
+            #info{
+                position: absolute;
+                left:calc(50% - 185px);
+                top: 30px;
+                text-align: center;
+            }
+            #tip{
+                position: absolute;
+                bottom: 160px;
+                right: calc(50% - 70px);
+            }
+        </style>
+    </head>
+    <!--屏蔽文字选中,屏蔽鼠标样式改变-->
+    <body style="cursor: default; user-select: none;">
+        <table id = 'info'  border="5px solid" height="40px" >
+            <tr><td id = 'restMine' width="120px"></td>
+                <td width="120px"><select name="difficulty" onchange='btnChange(this[selectedIndex].value);'>
+                    <option value="0">初级</option>
+                    <option value="1">中级</option>
+                    <option value="2">高级</option>
+                </select></td>
+                <td id="time" width="120px">0:0</td>
+            </tr>
+        </table>
+        <div id="box" ></div>
+        <p1 id ='tip'>按下空格开始新游戏</p>
+    </body>
+</html>
+<script type="text/javascript">
+var mineMap = new Array();
+var searched = new Array();
+var clickX;
+var clickY;
+var boxHeight;
+var boxWidth;
+var mineNumber;
+var intervalid;
+var diffi = 0;
+var around = [[-1,-1],[-1,0],[-1,1],[0,-1],[0,1],[1,-1],[1,0],[1,1]];
+var eleBox = document.getElementById('box');
+var eleRestMine = document.getElementById('restMine');
+
+//设置难度数值
+diffiSet(diffi);
+//设置Box
+setBox();
+//生成格子
+createGrid();
+
+//点击下拉框，选择不同难度
+function btnChange(values){
+    diffiSet(parseInt(values));
+    clearGrid();
+    setBox();
+    createGrid();
+}
+
+//点击空格,开始新游戏
+window.onkeydown = function (event){
+    if(event.keyCode == 32){
+        clearGrid();
+        createGrid();
+    }
+}
+
+//生成格子,并添加鼠标事件
+function createGrid(){
+//  生成格子
+    for (var i = 0 ; i < boxHeight ; i++){
+        for(var j = 0; j < boxWidth ; j++){
+            eleImg = document.createElement('div');
+            eleImg.className = 'grid';
+            //添加坐标
+            eleImg.attributes.coor = [i,j];
+            document.getElementById('box').appendChild(eleImg);
+            }
+        }
+    //剩余雷数
+    eleRestMine.innerText = mineNumber;
+    //添加鼠标事件
+    var eleGrid = document.getElementsByTagName('div');
+    var time1;
+    var time2;
+    for(var i = 1 ; i < eleGrid.length; i++){
+//  阻止右键菜单
+        eleGrid[i].oncontextmenu = function(e){
+               e.preventDefault();
+        }
+//  获取左右键点击number类的时间，实现左右键同时点击的功能
+        eleGrid[i].onmouseup = function(e){
+            if(e.button == 0 && this.className == 'number'){
+                time1 = new Date().getTime();
+            }
+            if(e.button == 2 && this.className == 'number'){
+                time2 = new Date().getTime();
+            }
+    //      左键点击        
+            if(e.button == 0 && this.className == 'grid'){
+                clickX = this.attributes.coor[0];
+                clickY = this.attributes.coor[1];
+    //          如果searched为空,则生成扫雷图
+                if(searched.length == 0){
+                    mineMap = showNumber(createMine(clickX,clickY,boxWidth,boxHeight,mineNumber));
+                    console.log(mineMap);
+    //              启动计时器
+                    var count = 0;
+                    intervalid = setInterval(function(){
+                        var second = ++count % 60;
+                        var minute = parseInt(count / 60);
+                        document.getElementById('time').innerText = minute + ':' + second;
+                    },1000);                
+                }
+    //          点到雷,游戏失败
+                if(mineMap[clickX][clickY] == '*'){
+                    gameFail(eleGrid);
+    //              红雷
+                    this.style.backgroundImage = 'url(o.png)';
+                }
+    //          普通点击
+                else{
+                    this.className = 'number';
+                    if (mineMap[clickX][clickY] != 0){
+                        this.innerText = mineMap[clickX][clickY];
+                    }
+                    clickMap(mineMap,clickX,clickY);
+                    showBlank(eleGrid);
+                }
+                console.log(searched);
+    //          判断胜利
+                if(searched.length == boxHeight * boxWidth - mineNumber){
+                    eleRestMine.innerText = 0;
+                    clearInterval(intervalid);
+    //              自动插上所有旗子
+                    for(var j = 1; j < eleGrid.length; j++){
+                        if(eleGrid[j].className == 'grid'){
+                            eleGrid[j].className = 'flag';
+                        }
+                    }
+                    console.log('你赢了');
+                }
+            }
+            //          点击滚轮 或者同时按下左右键
+            if((e.button == 1 || Math.abs(time1 - time2) < 100) && this.className == 'number'){
+                var flagNum = 0;
+                var tempArr = new Array();
+                clickX = this.attributes.coor[0];
+                clickY = this.attributes.coor[1];
+                for(var j = 0;j < 8; j++){
+                    tempX = clickX + around[j][0];
+                    tempY = clickY + around[j][1];
+//                  判断是否越界
+                    if(tempX >= 0 && tempX <= boxHeight && tempY >= 0 && tempY <= boxWidth ){
+//                      查找周围格子
+                        for(var k = 1; k < eleGrid.length; k++){
+                            if(eleGrid[k].attributes.coor.toString() == [tempX,tempY].toString()){
+//                              统计旗子数目
+                                if(eleGrid[k].className == 'flag'){
+                                    flagNum++;
+                                }
+//                              统计grid坐标
+                                else if(eleGrid[k].className == 'grid'){
+                                    tempArr.push([tempX,tempY]);
+                                }
+                                break;
+                            }
+                        }
+                    }
+                }
+//                  如果旗数与数字相等,触发快捷操作
+                if(flagNum == mineMap[clickX][clickY]){
+                    for(var k = 0;k < tempArr.length;k++){
+//                      引爆地雷,游戏失败
+                        if(mineMap[tempArr[k][0]][tempArr[k][1]] == '*'){
+                            gameFail(eleGrid);
+                        }
+                        clickMap(mineMap,tempArr[k][0],tempArr[k][1])
+                    }
+                    showBlank(eleGrid);
+                }
+            }
+        }
+//      设置右键点击插旗
+        setRight(eleGrid[i]);
+    }
+}
+
+function setRight(ele){
+    ele.onmousedown = function(e){
+        if(e.button == 2){
+            if( this.className == 'grid'){
+                this.className = 'flag';
+                eleRestMine.innerText--;
+            }
+            else if(this.className == 'flag'){
+                this.className = 'grid';
+                eleRestMine.innerText++;
+            }
+        }
+    }
+}
+
+//设置难度数值
+function diffiSet(diffi){
+    switch (diffi){
+        case 0:
+        boxWidth = 9;
+        boxHeight = 9;
+        mineNumber = 10;
+        break;
+        case 1:
+        boxWidth = 16;
+        boxHeight = 16;
+        mineNumber = 40;
+        break;
+        case 2: 
+        boxWidth = 30;
+        boxHeight = 16;
+        mineNumber = 99;
+        break;
+        default:
+        break;
+    }
+}
+
+//设置box
+function setBox(){
+    eleBox.style.height = 20 * boxHeight + 'px';
+    eleBox.style.width = 20 * boxWidth + 'px';
+    eleBox.style.left = 'calc(50% - ' + (20 * boxWidth / 2) + 'px)';
+}
+
+//生成雷的分布
+function createMine(x,y,width,height,mineNum){
+    var mineArr = new Array()
+    for(var i=0 ; i < height ; i++){          
+        mineArr[i]=new Array(i);   
+        for(var j=0 ; j < width ; j++){     
+            mineArr[i][j] = 0;
+        }
+   }
+    
+    var count = 0;
+    while(count != mineNum){
+        randX = parseInt(Math.random()*height);
+        randY = parseInt(Math.random()*width);
+        if(randX != x && randY != y && mineArr[randX][randY] != '*'){
+            mineArr[randX][randY] = '*';
+            count++;
+        }
+    }
+    return mineArr;
+}
+
+//生成数字
+function showNumber(mineArr){
+    for (var i = 0; i < mineArr.length ; i++){
+        for (var j = 0 ; j < mineArr[i].length ; j++){
+            if(mineArr[i][j] == 0){
+                var mineCount = 0;
+                for (var k = 0; k < 8; k++){
+                    var aroundI = i + around[k][0];
+                    var aroundJ = j + around[k][1];
+                    if(aroundI >= 0 && aroundI < mineArr.length && aroundJ >= 0 && aroundJ < mineArr[0].length && mineArr[aroundI][aroundJ] == '*'){
+                        mineCount++;
+                    }
+                }
+                mineArr[i][j] = mineCount;
+            }
+        }
+    }
+    return mineArr;
+}
+
+//显示数字和空白区
+function showBlank(eleGrid){
+    for (var i = 0; i < searched.length; i++){
+        for(var j = 1;j < eleGrid.length; j++){
+            if(searched[i].toString() == eleGrid[j].attributes.coor.toString()){
+                if(eleGrid[j].className == 'flag'){
+                    searched.splice(i,1);
+                    i--;
+                }
+                else{
+                    eleGrid[j].className = 'number';
+                    var temp = mineMap[eleGrid[j].attributes.coor[0]][eleGrid[j].attributes.coor[1]];
+                    if(temp != 0){
+                        eleGrid[j].innerText = temp ;
+                    }
+                }
+            }
+        }
+    }
+}
+
+//点击
+function clickMap(mineArr,x,y){
+    if(x < 0 || x >= boxHeight || y < 0 || y >= boxWidth ){
+        return;
+    }
+    for (var i = 0; i < searched.length; i++){
+        if(x+','+y == searched[i].toString()){
+            return;
+        }
+    }
+    if(mineArr[x][y] == '*'){
+        return ;
+    }
+    searched.push([x,y]);
+    if(mineArr[x][y] == 0){
+        for(var i = 0; i < 8; i++){
+            clickMap(mineArr,x + around[i][0],y + around[i][1]);
+        }
+    }
+    return ;
+}
+function gameFail(eleGrid){
+    clearInterval(intervalid);
+//              所有雷都显示出来
+    for(var j = 0; j < boxHeight; j++){
+        for(var k = 0;k < boxWidth ;k++){
+            if( mineMap[j][k] == '*'){
+                for(var m = 1;m < eleGrid.length; m++){
+                    if(j+','+k == eleGrid[m].attributes.coor.toString()){
+                        eleGrid[m].className = 'mine';
+                    }
+//                  将鼠标事件取消
+                    eleGrid[m].onmouseup = "return false";
+                    eleGrid[m].onmousedown = 'return false';
+                }
+            }
+//                      如果不是雷,但是插了旗子，则显示X
+            else{
+                for(var m = 1;m < eleGrid.length; m++){
+                    if(j+','+k == eleGrid[m].attributes.coor.toString()){
+                        if(eleGrid[m].className == 'flag'){
+                            eleGrid[m].style.backgroundImage = 'url(X.png)';
+                        }
+                        break;
+                    }
+                }
+            }
+        }
+    }
+}
+
+//清空searched数组、所有格子并重置计时器
+function clearGrid(){
+    //重置时间
+    clearInterval(intervalid);
+    document.getElementById('time').innerText = '0:0';
+//  清空搜索数组
+    searched.splice(0,searched.length);
+//清空原有的格子
+    eleBox = document.getElementById('box');
+    eleBox.innerHTML = '';
+}
+</script>
